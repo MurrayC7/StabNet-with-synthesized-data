@@ -1,9 +1,11 @@
-from torchvision.models.inception import InceptionA, BasicConv2d, InceptionB, InceptionC, InceptionD, InceptionE, InceptionAux
+from torchvision.models.inception import InceptionA, BasicConv2d, InceptionB, InceptionC, InceptionD, InceptionE, \
+    InceptionAux
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 import torch
 from torch.autograd import Variable
+
 
 class Inception3(nn.Module):
 
@@ -102,7 +104,7 @@ def inception_v3(pretrained=False, **kwargs):
         pretrained_dict = model_zoo.load_url('https://download.pytorch.org/models/inception_v3_google-1a9a5a14.pth')
         # only load part of pretrained model
         pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
-        model_dict.update(pretrained_dict) 
+        model_dict.update(pretrained_dict)
         model.load_state_dict(pretrained_dict)
         return model
 

@@ -15,15 +15,16 @@ import cv2
 import sys
 import tensorboard_logger as tl
 
+
 def to_gray(x):
     return x[:, 0, :, :] * 0.299 + x[:, 1, :, :] * 0.587 + x[:, 2, :, :] * 0.114
 
-def visualize(data, warpped, global_step, sid, opt, mode='both', name=''):
 
+def visualize(data, warpped, global_step, sid, opt, mode='both', name=''):
     def draw(img, pts, mask, color=None):
         res = img.copy()
-        assert(pts.shape[0] == opt.max_matches)
-        assert(mask.shape[0] == opt.max_matches)
+        assert (pts.shape[0] == opt.max_matches)
+        assert (mask.shape[0] == opt.max_matches)
         pts = (pts / 2 + .5) * (img.shape[:2])[::-1]
         # print('pts={}'.format(pts))
         pts = pts.astype(np.int32)
@@ -47,10 +48,10 @@ def visualize(data, warpped, global_step, sid, opt, mode='both', name=''):
         img = target[i].cpu().numpy().transpose([1, 2, 0])
         # print(img.shape, pts.shape, mask.shape)
         # print('mask={}'.format(mask))
-        img = draw(img, pts[:, :2], mask) # stable
+        img = draw(img, pts[:, :2], mask)  # stable
         target[i].copy_(torch.from_numpy(img.transpose([2, 0, 1])))
         img = unstable[i].cpu().numpy().transpose([1, 2, 0])
-        img = draw(img, pts[:, 2:], mask) # unstable
+        img = draw(img, pts[:, 2:], mask)  # unstable
         unstable[i].copy_(torch.from_numpy(img.transpose([2, 0, 1])))
     vis = torch.cat(
         (unstable, warpped, target, diff),
@@ -61,15 +62,20 @@ def visualize(data, warpped, global_step, sid, opt, mode='both', name=''):
     vis_grid = torchvision.utils.make_grid(vis, nrow=vis.shape[0] // 4)
     if name != '': name += '-'
     if mode == 'both' or mode == 'save':
-        torchvision.utils.save_image(prefix, 
-            os.path.join(expr_dir, name + 'prefix-{:0>4}-{:0>3}.png'.format(global_step, sid)), nrow=1)
-        torchvision.utils.save_image(vis, 
-            os.path.join(expr_dir, name + 'input-output-target-{:0>4}-{:0>3}.png'.format(global_step, sid)), nrow=vis.shape[0] // 4)
+        torchvision.utils.save_image(prefix,
+                                     os.path.join(expr_dir, name + 'prefix-{:0>4}-{:0>3}.png'.format(global_step, sid)),
+                                     nrow=1)
+        torchvision.utils.save_image(vis,
+                                     os.path.join(expr_dir,
+                                                  name + 'input-output-target-{:0>4}-{:0>3}.png'.format(global_step,
+                                                                                                        sid)),
+                                     nrow=vis.shape[0] // 4)
     if name != '': name = name[:-1] + '/'
     if mode == 'both' or mode == 'log':
         tl.log_images(name + 'prefix/{}'.format(sid), [prefix_grid.cpu().numpy()], step=global_step)
         tl.log_images(name + 'input-output-target/{}'.format(sid), [vis_grid.cpu().numpy()], step=global_step)
         tl.log_images(name + 'diff/{}'.format(sid), diff[:, 0, ...].cpu().numpy(), step=global_step)
+
 
 def train(epoch):
     global global_step, criterion
@@ -108,15 +114,15 @@ def train(epoch):
             util.diagnose_network(model.cnn)
             util.diagnose_network(model.fc_loc)
             visualize(data, output.warpped, global_step, 0, opt, mode='save', name='train')
-            
+
             print('Epoch: [{0}][{1}/{2}]\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                   'Learning Rate {learning_rate}\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Data {data_time.val:.3f} ({data_time.avg:.3f})\n\t'
                   'ALl Loss {all_loss}'.format(
-                   epoch, i, len(train_dataloader), batch_time=batch_time, learning_rate=scheduler.get_lr(),
-                   data_time=data_time, loss=losses, all_loss=all_loss))
+                epoch, i, len(train_dataloader), batch_time=batch_time, learning_rate=scheduler.get_lr(),
+                data_time=data_time, loss=losses, all_loss=all_loss))
 
         if (global_step + 1) % opt.log_freq == 0:
             all_loss = criterion.summary()
@@ -128,7 +134,7 @@ def train(epoch):
                 tl.log_value('train/loss/' + k, v, global_step)
             for sid in range(data.fm[0].shape[0]):
                 visualize(data, output.warpped, global_step, sid, opt, mode='log', name='train')
-        
+
         if (global_step + 1) % opt.val_freq == 0:
             validate(epoch)
             validate(epoch, False)
@@ -139,6 +145,7 @@ def train(epoch):
 
         global_step += 1
         end = time.time()
+
 
 def validate(epoch, isEval=True):
     batch_time = AverageMeter()
@@ -168,13 +175,13 @@ def validate(epoch, isEval=True):
         # measure accuracy and record loss
         losses.update(loss.data[0], opt.batch_size)
         dict_losses.update(criterion.summary(), opt.batch_size)
-    
+
     all_loss = dict_losses.avg
     print('{evalStr}Validation: Epoch: [{0}]\t'
-            'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-            'Total Time {1:.3f}\n\t'
-            'ALl Loss {all_loss}'.format(
-            epoch, time.time() - end, loss=losses, all_loss=all_loss, evalStr=evalStr))
+          'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+          'Total Time {1:.3f}\n\t'
+          'ALl Loss {all_loss}'.format(
+        epoch, time.time() - end, loss=losses, all_loss=all_loss, evalStr=evalStr))
     for sid in range(data.fm[0].shape[0]):
         visualize(data, warpped, global_step, sid, opt, mode='both', name='{}val'.format(evalStr))
     tl.log_value('{}val/Loss'.format(evalStr), losses.val, global_step)
@@ -185,6 +192,7 @@ def validate(epoch, isEval=True):
         tl.log_value('{}val/loss/'.format(evalStr) + k, v, global_step)
     model.train()
     return losses.val
+
 
 def create_model(opt):
     if opt.model == 'LRCN':
@@ -200,6 +208,7 @@ def create_model(opt):
         model.cuda()
         torch.backends.cudnn.benchmark = True
     return model, criterion
+
 
 def main():
     global opt, train_dataloader, val_dataloader, model, criterion, optimizer, scheduler, global_step
@@ -236,7 +245,7 @@ def main():
             global_step = checkpoint['global_step']
             best_loss = checkpoint['best_loss']
             model.load_state_dict(checkpoint['state_dict'])
-            
+
             # optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(opt.continue_train, checkpoint['epoch']))

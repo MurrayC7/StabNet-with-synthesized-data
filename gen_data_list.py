@@ -1,27 +1,36 @@
-import sys, random, os
+import random
+import os
 import argparse
 from collections import namedtuple
 # from data_loader import Data, create_empty_data
 import json
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--root', default = '/home/lazycal/workspace/qudou/frames')
-parser.add_argument('--prefix', default = [6, 12, 18, 24, 30], type=int, nargs='+')
-parser.add_argument('--suffix', default = [0, 6, 12, 18, 24], type=int, nargs='+')
-parser.add_argument('--num', default = -1, type=int)
-parser.add_argument('--filename', default = '', help = 'Suffix that appends to generated file name.')
-parser.add_argument('--val-list', default = None, type=int, nargs='*')
+parser.add_argument('--root', default='/Users/plusub/Downloads/DeepStab')
+parser.add_argument('--prefix', default=[6, 12, 18, 24, 30], type=int, nargs='+')
+parser.add_argument('--suffix', default=[0, 6, 12, 18, 24], type=int, nargs='+')
+parser.add_argument('--num', default=-1, type=int)
+parser.add_argument('--filename', default='', help='Suffix that appends to generated file name.')
+parser.add_argument('--val-list', default=None, type=int, nargs='*')
 args = parser.parse_args()
 Data = namedtuple('Data', ['prefix', 'unstable', 'target', 'fm'])
 
+
 def create_empty_data():
     return Data(prefix=[], unstable=[], target=[], fm=[])
+
+
 def stab(vid):
     return os.path.join(args.root, 'stable', vid)
+
+
 def unst(vid):
     return os.path.join(args.root, 'unstable', vid)
+
+
 def imna(iid):
     return 'image-{:04d}.png'.format(iid + 1)
+
 
 def gen_samples(vid):
     stab_frame_root = stab(vid)
@@ -47,8 +56,12 @@ def gen_samples(vid):
         res.append(asample._asdict())
     return res
 
+
 def main():
-    videos = list(filter(lambda x: x.isdigit(), os.listdir(os.path.join(args.root, 'stable'))))
+    stable_path = os.listdir(os.path.join(args.root, 'stable'))
+    for name in stable_path:
+        stable_path[stable_path.index(name)] = name[:-4]  # 此处可以做扩展
+    videos = list(filter(lambda x: x.isdigit(), stable_path))
     n = len(videos)
     if args.val_list is None:
         random.shuffle(videos)
@@ -77,6 +90,7 @@ def main():
     with open('val-list{}.txt'.format('-' + args.filename if args.filename else ''), 'w') as fout:
         json.dump(val_list, fout, indent=2)
     print('len_train_list={}\nlen_val_list={}'.format(len(train_list), len(val_list)))
+
 
 if __name__ == '__main__':
     main()

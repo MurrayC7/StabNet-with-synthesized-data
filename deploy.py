@@ -34,7 +34,7 @@ def get_images(video_dir):
     img_list = []
     success, image = videoCap.read()
     while success:
-        image = np.stack((image[..., 2], image[... ,1], image[..., 0]), axis=2)
+        image = np.stack((image[..., 2], image[..., 1], image[..., 0]), axis=2)
         img = Image.fromarray(np.array(image), 'RGB')
         img_list.append(img)
         success, image = videoCap.read()
@@ -45,8 +45,8 @@ def get_images(video_dir):
 def generate_video(images, fps, opt):
     expr_dir = os.path.join(opt.checkpoints_dir, opt.name)
     fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-    out = cv2.VideoWriter(os.path.join(expr_dir, "{}.avi".format(opt.video_index)), 
-        fourcc, fps, (images[0].shape[1], images[0].shape[0]))
+    out = cv2.VideoWriter(os.path.join(expr_dir, "{}.avi".format(opt.video_index)),
+                          fourcc, fps, (images[0].shape[1], images[0].shape[0]))
     for image in images:
         # print(image)
         # print(image[0])
@@ -61,20 +61,22 @@ def generate_video(images, fps, opt):
         out.write(np.stack((image[..., 2], image[..., 1], image[..., 0]), axis=2))
     out.release()
 
+
 def draw_imgs(net_output, stable_frame, unstable_frame, last_frame):
     net_output = np.array(net_output)
     stable_frame = cv2.resize(np.array(stable_frame), (net_output.shape[1], net_output.shape[0]))
     unstable_frame = cv2.resize(np.array(unstable_frame), (net_output.shape[1], net_output.shape[0]))
     last_frame = cv2.resize(np.array(last_frame), (net_output.shape[1], net_output.shape[0]))
     net_output = cv2.resize(net_output, (net_output.shape[1], net_output.shape[0]))
-    output_minus_input  = abs(net_output*1. - unstable_frame).astype(np.uint8)
-    output_minus_stable = abs(net_output*1. - stable_frame).astype(np.uint8)
-    output_minus_last   = abs(net_output*1. - last_frame).astype(np.uint8)
-    img_top    = np.concatenate([net_output,         output_minus_stable], axis=1)
+    output_minus_input = abs(net_output * 1. - unstable_frame).astype(np.uint8)
+    output_minus_stable = abs(net_output * 1. - stable_frame).astype(np.uint8)
+    output_minus_last = abs(net_output * 1. - last_frame).astype(np.uint8)
+    img_top = np.concatenate([net_output, output_minus_stable], axis=1)
     img_bottom = np.concatenate([output_minus_input, output_minus_last], axis=1)
     img = np.concatenate([img_top, img_bottom], axis=0).astype(np.uint8)
     return cv2.resize(img, (0, 0), fx=0.5, fy=0.5)
     # return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
 
 def output_to_input(image, opt):
     img = tensor2im(image[0].data, imtype=np.float)
@@ -114,7 +116,8 @@ class PreprocessDataSet(torch.utils.data.Dataset):
         ]
         theta = np.array(theta, dtype=np.float)
         img = np.array(img)
-        img = cv2.warpAffine(img, theta, (img.shape[1], img.shape[0]), borderValue=(0.485 * 255, 0.456 * 255, 0.406 * 255))
+        img = cv2.warpAffine(img, theta, (img.shape[1], img.shape[0]),
+                             borderValue=(0.485 * 255, 0.456 * 255, 0.406 * 255))
         img = Image.fromarray(img, "RGB")
         return img
 
@@ -186,7 +189,7 @@ def main():
 
     else:
         for i in range(0, len(all_stable_frames) - 1):
-            if i % 100 == 0: print("=====> %d/%d"%(i, len(all_stable_frames)))
+            if i % 100 == 0: print("=====> %d/%d" % (i, len(all_stable_frames)))
             for j, data in enumerate(eval_data_loader):
                 if opt.gpu_ids:
                     data = map_data(lambda x: Variable(x.cuda(), volatile=True), data)
@@ -204,9 +207,11 @@ def main():
                 #     last_frame = pred_frames_for_input[len(pred_frames_for_input) + 1 - opt.prefix[0]]
                 # print(data.prefix[-1][0].data.shape)
                 last_frame = output_to_input([data.prefix[-1]], opt)
-                pred_frames.append(draw_imgs(output_to_input(warpped, opt), all_stable_frames[i], all_unstable_frames[i], last_frame))
+                pred_frames.append(
+                    draw_imgs(output_to_input(warpped, opt), all_stable_frames[i], all_unstable_frames[i], last_frame))
                 pred_frames_for_input.append(output_to_input(warpped, opt))
-                eval_data_loader = torch.utils.data.DataLoader(PreprocessDataSet(all_stable_frames, all_unstable_frames, pred_frames_for_input, opt))
+                eval_data_loader = torch.utils.data.DataLoader(
+                    PreprocessDataSet(all_stable_frames, all_unstable_frames, pred_frames_for_input, opt))
                 # if i < 100: visualize(data, warpped, i, 0, opt, 'save')
 
     # print video

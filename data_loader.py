@@ -19,8 +19,10 @@ regexp = re.compile(r'(\d+)(\.mp4)?\.avi')
 
 ori_width, ori_height = 1280, 720
 
+
 def norm_axis(x, len):
     return (x * 1. / len - 0.5) * 2
+
 
 def fetch_fm(root, path):
     # video_name = regexp.match(video_name).group(1)
@@ -28,13 +30,16 @@ def fetch_fm(root, path):
     mat = scipy.io.loadmat(path)
     # print('Read {}. Shape={}'.format(path, mat['res'].shape))
     x = norm_axis(mat['res'], [ori_width, ori_height, ori_width, ori_height]) \
-        if mat['res'].shape != (0,0) else np.zeros((0, 4), np.float32) #mat['res'].astype(np.float32)
-    return x#np.stack((x[..., 1], x[..., 0], x[..., 3], x[..., 2]), axis=1)
+        if mat['res'].shape != (0, 0) else np.zeros((0, 4), np.float32)  # mat['res'].astype(np.float32)
+    return x  # np.stack((x[..., 1], x[..., 0], x[..., 3], x[..., 2]), axis=1)
+
 
 Data = namedtuple('Data', ['prefix', 'unstable', 'target', 'fm', 'fm_mask'])
 
+
 def create_empty_data():
     return Data(prefix=[], unstable=[], target=[], fm=[], fm_mask=[])
+
 
 def map_data(fn, data):
     new_data = create_empty_data()
@@ -57,7 +62,6 @@ class VideoDataset(torch.utils.data.Dataset):
         #     {"prefix":   ["img1.png", "img2.png"],
         #      "unstable": ["img3.png", "img4.png"],
         #      "target":   ["img5.png", "img6.png"]
-
 
         #     },
         #     {...}
@@ -82,7 +86,8 @@ class VideoDataset(torch.utils.data.Dataset):
         ]
         theta = np.array(theta, dtype=np.float)
         img = np.array(img)
-        img = cv2.warpAffine(img, theta, (img.shape[1], img.shape[0]), borderValue=(0.485 * 255, 0.456 * 255, 0.406 * 255))
+        img = cv2.warpAffine(img, theta, (img.shape[1], img.shape[0]),
+                             borderValue=(0.485 * 255, 0.456 * 255, 0.406 * 255))
         img = Image.fromarray(img, "RGB")
         # img = img.transform(img.size, Image.AFFINE, theta, Image.BICUBIC)
         return img
@@ -99,8 +104,8 @@ class VideoDataset(torch.utils.data.Dataset):
         for i in img_names['fm']:
             fm = fetch_fm(self.root, i)
             fm = fm[:self.max_matches, ...]
-            fm_mask = np.pad(np.ones(fm.shape[0]),  (0, self.max_matches - fm.shape[0]), mode='constant').astype(np.bool)
-            fm = np.pad(fm, ((0, self.max_matches - fm.shape[0]), (0,0)), mode='constant').astype(np.float32)
+            fm_mask = np.pad(np.ones(fm.shape[0]), (0, self.max_matches - fm.shape[0]), mode='constant').astype(np.bool)
+            fm = np.pad(fm, ((0, self.max_matches - fm.shape[0]), (0, 0)), mode='constant').astype(np.float32)
             sample['fm'].append(fm)
             fm_masks.append(fm_mask)
 
@@ -125,12 +130,13 @@ class VideoDataset(torch.utils.data.Dataset):
         sample = Data(**sample)
         return sample
 
+
 def get_transform(opt, isTrain):
     transform_list = []
     if isTrain and opt.data_augment:
         input_ratio = opt.height * 1.0 / opt.width
         # if input_ratio > 1: 
-            # input_ratio = 1. / input_ratio
+        # input_ratio = 1. / input_ratio
         C = input_ratio
         length = C * 2
         l = length / (math.e ** (length / C) - 1)
@@ -143,13 +149,14 @@ def get_transform(opt, isTrain):
                                                      size=[opt.height, opt.width]))
     return transforms.Compose(transform_list)
 
+
 def create_data_loader(opt):
     train_dataset = VideoDataset(opt, opt.train_source, get_transform(opt, isTrain=opt.isTrain))
     val_dataset = VideoDataset(opt, opt.val_source, get_transform(opt, isTrain=opt.isTrain))
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=opt.batch_size,
-                            shuffle=not opt.serial_batches, num_workers=int(opt.nThreads))
+                                                   shuffle=not opt.serial_batches, num_workers=int(opt.nThreads))
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=opt.batch_size,
-                            shuffle=not opt.serial_batches, num_workers=int(opt.nThreads))
+                                                 shuffle=not opt.serial_batches, num_workers=int(opt.nThreads))
     return train_dataloader, val_dataloader
 
 
@@ -184,6 +191,7 @@ class BatchRandomCrop(transforms.RandomResizedCrop):
 
         return res
 
+
 class BatchRandomHorizontalFlip(object):
     """Horizontally flip the given PIL Image randomly with a probability of 0.5."""
 
@@ -199,12 +207,14 @@ class BatchRandomHorizontalFlip(object):
                 res['fm'].append(fm)
         return res
 
+
 class ResizeToTensorAndNormalize(object):
     """Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor.
 
     Converts a PIL Image or numpy.ndarray (H x W x C) in the range
     [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0].
     """
+
     def __init__(self, mean, std, size, interpolation=Image.BILINEAR):
         self.mean = mean
         self.std = std
@@ -228,4 +238,3 @@ class ResizeToTensorAndNormalize(object):
             fm = sample['fm'][i]
             res['fm'].append(torch.from_numpy(fm.astype(np.float32)))
         return res
-

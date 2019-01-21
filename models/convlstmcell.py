@@ -3,7 +3,6 @@ from torch import nn
 import torch.nn.functional as f
 from torch.autograd import Variable
 
-
 # Define some constants
 KERNEL_SIZE = 3
 PADDING = KERNEL_SIZE // 2
@@ -21,7 +20,6 @@ class ConvLSTMCell(nn.Module):
         self.Gates = nn.Conv2d(input_size + hidden_size, 4 * hidden_size, KERNEL_SIZE, padding=PADDING)
 
     def forward(self, input_, prev_state):
-
         # get batch and spatial sizes
         batch_size = input_.data.size()[0]
         spatial_size = input_.data.size()[2:]
@@ -30,7 +28,7 @@ class ConvLSTMCell(nn.Module):
         if prev_state is None:
             state_size = [batch_size, self.hidden_size] + list(spatial_size)
             prev_state = (
-                Variable(input_.data.new(*state_size).zero_()),#   torch.zeros(state_size)),
+                Variable(input_.data.new(*state_size).zero_()),  # torch.zeros(state_size)),
                 Variable(input_.data.new(*state_size).zero_())
             )
 
@@ -65,9 +63,9 @@ def _main():
 
     # define batch_size, channels, height, width
     b, c, h, w = 1, 3, 4, 8
-    d = 5           # hidden state size
-    lr = 1e-1       # learning rate
-    T = 6           # sequence length
+    d = 5  # hidden state size
+    lr = 1e-1  # learning rate
+    T = 6  # sequence length
     max_epoch = 20  # number of epochs
 
     # set manual seed
@@ -92,7 +90,7 @@ def _main():
             state = model(x[t], state)
             loss += loss_fn(state[0], y[t])
 
-        print(' > Epoch {:2d} loss: {:.3f}'.format((epoch+1), loss.data[0]))
+        print(' > Epoch {:2d} loss: {:.3f}'.format((epoch + 1), loss.data[0]))
 
         # zero grad parameters
         model.zero_grad()
@@ -111,7 +109,6 @@ def _main():
 
 if __name__ == '__main__':
     _main()
-
 
 __author__ = "Alfredo Canziani"
 __credits__ = ["Alfredo Canziani"]

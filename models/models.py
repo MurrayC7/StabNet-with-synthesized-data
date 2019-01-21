@@ -5,16 +5,15 @@ import torch.nn.functional as F
 import os
 from collections import OrderedDict, namedtuple
 from torch.autograd import Variable
-import itertools
 import util.util as util
-import sys
 from torchvision import models
 from .convlstmcell import ConvLSTMCell
 from . import inception, resnet
 
 # __all__ = ['LRCNModel', 'Output']
 
-Output = namedtuple('Output', ['warpped', 'mask','thetas'])
+Output = namedtuple('Output', ['warpped', 'mask', 'thetas'])
+
 
 def stn(img, theta):
     theta = theta.view(-1, 2, 3)
@@ -24,6 +23,7 @@ def stn(img, theta):
 
     return img
 
+
 def create_cnn(opt):
     if opt.cnn == 'googlenet':
         return inception.inception_v3(pretrained=opt.pretrained)
@@ -32,8 +32,10 @@ def create_cnn(opt):
     else:
         raise ValueError('Unrecognized argument {}'.format(opt.cnn))
 
+
 def get_shape(cnn, h, w):
     return cnn.forward(Variable(torch.zeros(1, 3, h, w), volatile=True)).shape
+
 
 class LRCNModel(nn.Module):
     def name(self):
@@ -45,15 +47,15 @@ class LRCNModel(nn.Module):
         # googlenet = models.inception_v3(pretrained=True, aux_logits=False, transform_input=True)
         # self.cnn = nn.Sequential(*list(googlenet.children())[:-1])
         self.cnn = create_cnn(opt)
-        shape = get_shape(self.cnn, opt.height, opt.width) # [1, 2048, 7, 14] = 200704a
+        shape = get_shape(self.cnn, opt.height, opt.width)  # [1, 2048, 7, 14] = 200704a
         self.cnn_output_shape = shape
         print('cnn output shape={}'.format(shape))
         self.rnn = opt.rnn
         self.rnn_layers = opt.rnn_layers
         self.rnn_chn = opt.rnn_chn
-        self.rnn_input_dim = shape[1] #shape[1] * shape[2] * shape[3]
+        self.rnn_input_dim = shape[1]  # shape[1] * shape[2] * shape[3]
         self.lstm = nn.LSTM(self.rnn_input_dim, opt.rnn_chn, num_layers=opt.rnn_layers, batch_first=False)
-        
+
         self.fc_loc = nn.Sequential(
             nn.Linear(self.rnn_chn * self.rnn_layers + self.rnn_input_dim, self.rnn_chn),
             # nn.Linear(self.rnn_input_dim * 2, self.rnn_chn),
@@ -95,8 +97,9 @@ class LRCNModel(nn.Module):
             thetas.append(self.fc_loc(before_fc_loc))
             warpped.append(stn(sample.unstable[idx], thetas[idx]))
             img_shape = sample.unstable[idx].shape
-            mask.append(stn(Variable(output.data.new(img_shape[0], 1, img_shape[2], img_shape[3]).zero_() + 1), thetas[idx]))
-            
+            mask.append(
+                stn(Variable(output.data.new(img_shape[0], 1, img_shape[2], img_shape[3]).zero_() + 1), thetas[idx]))
+
         return Output(warpped, mask, thetas)
 
 
@@ -108,20 +111,21 @@ class ConvLSTM(nn.Module):
         super(ConvLSTM, self).__init__()
         self.opt = opt
         self.cnn = create_cnn(opt)
-        shape = get_shape(self.cnn, opt.height, opt.width) # [1, 2048, 7, 14] = 200704a
+        shape = get_shape(self.cnn, opt.height, opt.width)  # [1, 2048, 7, 14] = 200704a
         self.cnn_output_shape = shape
         print('cnn output shape={}'.format(shape))
         self.rnn = opt.rnn
         self.rnn_layers = opt.rnn_layers
         self.rnn_chn = opt.rnn_chn
-        self.rnn_input_dim = shape[1] #shape[1] * shape[2] * shape[3]
-        self.convlstm = ConvLSTMCell(shape[1], self.rnn_chn)# nn.LSTM(self.rnn_input_dim, opt.rnn_chn, num_layers=opt.rnn_layers, batch_first=False)
-        
+        self.rnn_input_dim = shape[1]  # shape[1] * shape[2] * shape[3]
+        self.convlstm = ConvLSTMCell(shape[1],
+                                     self.rnn_chn)  # nn.LSTM(self.rnn_input_dim, opt.rnn_chn, num_layers=opt.rnn_layers, batch_first=False)
+
         self.fc_loc = nn.Sequential(
-            nn.Conv2d(self.rnn_chn + self.cnn_output_shape[1], 512, (1, 1)), # [n, 512, 7, 14]
+            nn.Conv2d(self.rnn_chn + self.cnn_output_shape[1], 512, (1, 1)),  # [n, 512, 7, 14]
             nn.ReLU(),
             nn.AvgPool2d(self.cnn_output_shape[2:]),
-            nn.Conv2d(512, 6, (1, 1)), # [n, 6, 1, 1]
+            nn.Conv2d(512, 6, (1, 1)),  # [n, 6, 1, 1]
             # nn.ReLU(),
         )
         # Initialize the weights/bias with identity transformation
@@ -141,7 +145,7 @@ class ConvLSTM(nn.Module):
         for i in seq:
             output = self.cnn(i)
             features.append(output)
-        
+
         # RNN
         state = None
         for t in range(0, num_prefix):
@@ -156,8 +160,9 @@ class ConvLSTM(nn.Module):
             thetas.append(output)
             warpped.append(stn(sample.unstable[idx], thetas[idx]))
             img_shape = sample.unstable[idx].shape
-            mask.append(stn(Variable(output.data.new(img_shape[0], 1, img_shape[2], img_shape[3]).zero_() + 1), thetas[idx]))
-            
+            mask.append(
+                stn(Variable(output.data.new(img_shape[0], 1, img_shape[2], img_shape[3]).zero_() + 1), thetas[idx]))
+
         return Output(warpped, mask, thetas)
 
 # class SimpleModel(nn.Module):
@@ -195,7 +200,7 @@ class ConvLSTM(nn.Module):
 #             output = self.cnn(i)
 #             output = F.avg_pool2d(output, kernel_size=self.cnn_output_shape[2:]).view(batch_size, -1)
 #             features.append(output)
-        
+
 #         # STN
 #         pred = features[num_prefix]
 #         warpped, thetas = [], []
